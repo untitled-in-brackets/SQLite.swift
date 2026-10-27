@@ -274,6 +274,33 @@ public enum LiteralValue: Equatable, CustomStringConvertible, Sendable {
     }
 }
 
+fileprivate func stringRange(
+    of needle: Substring,
+    in source: Substring,
+    startingAt startIndex: String.Index? = nil
+) -> Range<String.Index>? {
+    let lowerBound = startIndex ?? source.startIndex
+    guard lowerBound <= source.endIndex else { return nil }
+    if needle.isEmpty { return lowerBound..<lowerBound }
+
+    var candidateStart = lowerBound
+    while candidateStart < source.endIndex {
+        var sourceIndex = candidateStart
+        var needleIndex = needle.startIndex
+        while sourceIndex < source.endIndex,
+              needleIndex < needle.endIndex,
+              source[sourceIndex] == needle[needleIndex] {
+            sourceIndex = source.index(after: sourceIndex)
+            needleIndex = needle.index(after: needleIndex)
+        }
+        if needleIndex == needle.endIndex {
+            return candidateStart..<sourceIndex
+        }
+        candidateStart = source.index(after: candidateStart)
+    }
+    return nil
+}
+
 // https://sqlite.org/lang_createindex.html
 // schema-name.index-name ON table-name ( indexed-column+ ) WHERE expr
 public struct IndexDefinition: Equatable, Sendable {
@@ -295,7 +322,7 @@ public struct IndexDefinition: Equatable, Sendable {
 
     init (table: String, name: String, unique: Bool, columns: [String], indexSQL: String?, origin: Origin? = nil) {
         func wherePart(sql: String) -> String? {
-            guard let range = sql.range(of: "WHERE"),
+            guard let range = stringRange(of: "WHERE"[...], in: sql[...]),
                   range.lowerBound > sql.startIndex,
                   sql[sql.index(before: range.lowerBound)].isWhitespace,
                   range.upperBound < sql.endIndex,
@@ -311,7 +338,7 @@ public struct IndexDefinition: Equatable, Sendable {
             var result: [String: IndexDefinition.Order] = [:]
             var searchStart = sql.startIndex
 
-            while let range = sql.range(of: " DESC", range: searchStart..<sql.endIndex) {
+            while let range = stringRange(of: " DESC"[...], in: sql[...], startingAt: searchStart) {
                 var columnEnd = range.lowerBound
                 if columnEnd > sql.startIndex, sql[sql.index(before: columnEnd)] == "\"" {
                     columnEnd = sql.index(before: columnEnd)

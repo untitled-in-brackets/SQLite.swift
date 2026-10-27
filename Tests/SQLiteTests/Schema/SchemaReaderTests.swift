@@ -174,6 +174,26 @@ class SchemaReaderTests: SQLiteTestCase {
         ])
     }
 
+    func test_indexDefinitions_with_quoted_desc_columns_and_where() throws {
+        try db.run("""
+            CREATE INDEX "index_users_desc" ON "users" ("age" DESC, "admin" DESC)
+              WHERE   "age" IS NOT NULL
+            """)
+        let indexes = try schemaReader.indexDefinitions(table: "users").filter { !$0.isInternal }
+
+        XCTAssertEqual(indexes, [
+            IndexDefinition(
+                table: "users",
+                name: "index_users_desc",
+                unique: false,
+                columns: ["age", "admin"],
+                where: "\"age\" IS NOT NULL",
+                orders: ["age": .DESC, "admin": .DESC],
+                origin: .createIndex
+            )
+        ])
+    }
+
     func test_foreignKeys_info_empty() throws {
         try db.run("CREATE TABLE t (\"id\" INTEGER PRIMARY KEY)")
 
