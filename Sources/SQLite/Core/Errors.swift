@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public enum QueryError: Error, CustomStringConvertible, Sendable {
     case noSuchTable(name: String)

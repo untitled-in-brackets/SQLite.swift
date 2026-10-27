@@ -22,8 +22,16 @@
 // THE SOFTWARE.
 //
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#if Foundation
 import Foundation
+#endif
+#else
+import Foundation
+#endif
 
+#if Foundation
 /// All five date and time functions take a time string as an argument.
 /// The time string is followed by zero or more modifiers.
 /// The strftime() function also takes a format string as its first argument.
@@ -104,3 +112,4 @@ extension Expression where UnderlyingType == Date {
         Expression<Date>("julianday(\(template))", bindings)
     }
 }
+#endif

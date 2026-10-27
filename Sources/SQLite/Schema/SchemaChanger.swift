@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /*
     https://www.sqlite.org/lang_altertable.html
@@ -322,7 +326,9 @@ extension IndexDefinition {
             if to.starts(with: SchemaChanger.tempPrefix) {
                 return "\(SchemaChanger.tempPrefix)\(name)"
             } else if table.starts(with: SchemaChanger.tempPrefix) {
-                return name.replacingOccurrences(of: SchemaChanger.tempPrefix, with: "")
+                return name.hasPrefix(SchemaChanger.tempPrefix)
+                    ? String(name.dropFirst(SchemaChanger.tempPrefix.count))
+                    : name
             } else {
                 return name
             }

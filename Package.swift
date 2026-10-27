@@ -56,6 +56,8 @@ let package = Package(
         .library(name: "SQLite-Dynamic", type: .dynamic, targets: ["SQLite"])
     ],
     traits: [
+        .trait(name: "Foundation",
+              description: "Enables Foundation APIs"),
         .trait(name: "SystemSQLite",
               description: "Uses the system-provided SQLite (on Apple platforms)"),
         .trait(name: "SQLiteSwiftCSQLite",
@@ -69,7 +71,7 @@ let package = Package(
               description: "Enables FTS5 in the embedded SQLite (only supported by SQLiteSwiftCSQLite)"),
         .trait(name: "RTree",
               description: "Enables R*Tree in the embedded SQLite (only supported by SQLiteSwiftCSQLite)"),
-        .default(enabledTraits: defaultTraits)
+        .default(enabledTraits: defaultTraits.union(["Foundation"]))
     ],
     dependencies: [
         .package(url: "https://github.com/stephencelis/CSQLite", from: "3.53.4", traits: [

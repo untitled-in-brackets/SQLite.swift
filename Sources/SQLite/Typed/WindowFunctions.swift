@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // see https://www.sqlite.org/windowfunctions.html#builtins
 private enum WindowFunction: String, Sendable {

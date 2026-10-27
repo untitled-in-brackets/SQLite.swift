@@ -22,7 +22,14 @@
 // THE SOFTWARE.
 //
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#if Foundation
 import Foundation
+#endif
+#else
+import Foundation
+#endif
 
 extension Data: Value {
 
@@ -42,6 +49,7 @@ extension Data: Value {
 
 }
 
+#if Foundation
 extension Date: Value {
 
     public static var declaredDatatype: String {
@@ -68,6 +76,7 @@ public let dateFormatter: DateFormatter = {
     formatter.timeZone = TimeZone(secondsFromGMT: 0)
     return formatter
 }()
+#endif
 
 extension UUID: Value {
 

@@ -22,8 +22,11 @@
 // THE SOFTWARE.
 //
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
-import Dispatch
+#endif
 #if StandaloneSQLite
 import sqlite3
 #elseif SQLCipher

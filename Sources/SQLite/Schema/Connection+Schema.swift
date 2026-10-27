@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public extension Connection {
     var schema: SchemaReader { SchemaReader(connection: self) }

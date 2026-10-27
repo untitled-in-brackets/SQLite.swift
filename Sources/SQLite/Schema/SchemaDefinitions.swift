@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 struct TableDefinition: Equatable {
     let name: String
@@ -90,28 +94,38 @@ public struct ColumnDefinition: Equatable, Sendable {
         let autoIncrement: Bool
         let onConflict: OnConflict?
 
-        // swiftlint:disable:next force_try
-        static let pattern = try! NSRegularExpression(pattern: "PRIMARY KEY\\s*(?:ASC|DESC)?\\s*(?:ON CONFLICT (\\w+)?)?\\s*(AUTOINCREMENT)?")
-
         public init(autoIncrement: Bool = true, onConflict: OnConflict? = nil) {
             self.autoIncrement = autoIncrement
             self.onConflict = onConflict
         }
 
         init?(sql: String) {
-            guard let match = PrimaryKey.pattern.firstMatch(
-                in: sql,
-                range: NSRange(location: 0, length: sql.count)) else {
+            let tokens = sql.split(whereSeparator: { $0.isWhitespace || ",()".contains($0) })
+            guard let primaryKeyIndex = tokens.indices.first(where: {
+                tokens[$0].uppercased() == "PRIMARY" &&
+                    tokens.index(after: $0) < tokens.endIndex &&
+                    tokens[tokens.index(after: $0)].uppercased() == "KEY"
+            }) else {
                 return nil
             }
-            let conflict = match.range(at: 1)
-            let onConflict: ColumnDefinition.OnConflict?
-            if conflict.location != NSNotFound {
-                onConflict = OnConflict((sql as NSString).substring(with: conflict))
-            } else {
-                onConflict = nil
+
+            var index = tokens.index(primaryKeyIndex, offsetBy: 2)
+            if index < tokens.endIndex, ["ASC", "DESC"].contains(tokens[index].uppercased()) {
+                index = tokens.index(after: index)
             }
-            let autoIncrement = match.range(at: 2).location != NSNotFound
+
+            var onConflict: OnConflict?
+            if index < tokens.endIndex, tokens[index].uppercased() == "ON" {
+                let conflictIndex = tokens.index(after: index)
+                if conflictIndex < tokens.endIndex, tokens[conflictIndex].uppercased() == "CONFLICT" {
+                    index = tokens.index(after: conflictIndex)
+                    if index < tokens.endIndex {
+                        onConflict = OnConflict(String(tokens[index]))
+                    }
+                }
+            }
+
+            let autoIncrement = tokens.contains { $0.uppercased() == "AUTOINCREMENT" }
             self.init(autoIncrement: autoIncrement, onConflict: onConflict)
         }
     }
@@ -168,12 +182,6 @@ public struct ColumnDefinition: Equatable, Sendable {
 }
 
 public enum LiteralValue: Equatable, CustomStringConvertible, Sendable {
-    // swiftlint:disable force_try
-    private static let singleQuote = try! NSRegularExpression(pattern: "^'(.*)'$")
-    private static let doubleQuote = try! NSRegularExpression(pattern: "^\"(.*)\"$")
-    private static let blob        = try! NSRegularExpression(pattern: "^[xX]\'(.*)\'$")
-    // swiftlint:enable force_try
-
     case numericLiteral(String)
     case stringLiteral(String)
     // BLOB literals are string literals containing hexadecimal data and preceded by a single "x" or "X"
@@ -235,15 +243,34 @@ public enum LiteralValue: Equatable, CustomStringConvertible, Sendable {
         }
     }
     private static func parse(_ string: String) -> LiteralValue {
-        if let match = LiteralValue.singleQuote.firstMatch(in: string, range: NSRange(location: 0, length: string.count)) {
-            return .stringLiteral((string as NSString).substring(with: match.range(at: 1)).replacingOccurrences(of: "''", with: "'"))
-        } else if let match = LiteralValue.doubleQuote.firstMatch(in: string, range: NSRange(location: 0, length: string.count)) {
-            return .stringLiteral((string as NSString).substring(with: match.range(at: 1)).replacingOccurrences(of: "\"\"", with: "\""))
-        } else if let match = LiteralValue.blob.firstMatch(in: string, range: NSRange(location: 0, length: string.count)) {
-            return .blobLiteral((string as NSString).substring(with: match.range(at: 1)))
-        } else {
-            return .numericLiteral(string)
+        if string.count >= 2, string.first == "'", string.last == "'" {
+            return .stringLiteral(unescape(string.dropFirst().dropLast(), quote: "'"))
         }
+        if string.count >= 2, string.first == "\"", string.last == "\"" {
+            return .stringLiteral(unescape(string.dropFirst().dropLast(), quote: "\""))
+        }
+        if string.count >= 3,
+           (string.first == "x" || string.first == "X"),
+           string.dropFirst().first == "'",
+           string.last == "'" {
+            return .blobLiteral(String(string.dropFirst(2).dropLast()))
+        }
+        return .numericLiteral(string)
+    }
+
+    private static func unescape<S: StringProtocol>(_ value: S, quote: Character) -> String {
+        let characters = Array(value)
+        var result = ""
+        var index = 0
+        while index < characters.count {
+            let character = characters[index]
+            if character == quote, index + 1 < characters.count, characters[index + 1] == quote {
+                index += 1
+            }
+            result.append(character)
+            index += 1
+        }
+        return result
     }
 }
 
@@ -252,11 +279,6 @@ public enum LiteralValue: Equatable, CustomStringConvertible, Sendable {
 public struct IndexDefinition: Equatable, Sendable {
     // SQLite supports index names up to 64 characters.
     static let maxIndexLength = 64
-
-    // swiftlint:disable force_try
-    static let whereRe = try! NSRegularExpression(pattern: "\\sWHERE\\s+(.+)$")
-    static let orderRe = try! NSRegularExpression(pattern: "\"?(\\w+)\"? DESC")
-    // swiftlint:enable force_try
 
     public enum Order: String, Sendable { case ASC, DESC }
 
@@ -273,20 +295,43 @@ public struct IndexDefinition: Equatable, Sendable {
 
     init (table: String, name: String, unique: Bool, columns: [String], indexSQL: String?, origin: Origin? = nil) {
         func wherePart(sql: String) -> String? {
-            IndexDefinition.whereRe.firstMatch(in: sql, options: [], range: NSRange(location: 0, length: sql.count)).map {
-                (sql as NSString).substring(with: $0.range(at: 1))
+            guard let range = sql.range(of: "WHERE"),
+                  range.lowerBound > sql.startIndex,
+                  sql[sql.index(before: range.lowerBound)].isWhitespace,
+                  range.upperBound < sql.endIndex,
+                  sql[range.upperBound].isWhitespace
+            else {
+                return nil
             }
+            let value = sql[range.upperBound...].drop(while: \.isWhitespace)
+            return value.isEmpty ? nil : String(value)
         }
 
         func orders(sql: String) -> [String: IndexDefinition.Order] {
-            IndexDefinition.orderRe
-                .matches(in: sql, range: NSRange(location: 0, length: sql.count))
-                .reduce([String: IndexDefinition.Order]()) { (memo, result) in
-                        var memo2 = memo
-                        let column = (sql as NSString).substring(with: result.range(at: 1))
-                        memo2[column] = .DESC
-                        return memo2
+            var result: [String: IndexDefinition.Order] = [:]
+            var searchStart = sql.startIndex
+
+            while let range = sql.range(of: " DESC", range: searchStart..<sql.endIndex) {
+                var columnEnd = range.lowerBound
+                if columnEnd > sql.startIndex, sql[sql.index(before: columnEnd)] == "\"" {
+                    columnEnd = sql.index(before: columnEnd)
+                }
+
+                var columnStart = columnEnd
+                while columnStart > sql.startIndex {
+                    let previous = sql[sql.index(before: columnStart)]
+                    guard previous.isLetter || previous.isNumber || previous == "_" else {
+                        break
+                    }
+                    columnStart = sql.index(before: columnStart)
+                }
+
+                if columnStart < columnEnd {
+                    result[String(sql[columnStart..<columnEnd])] = .DESC
+                }
+                searchStart = range.upperBound
             }
+            return result
         }
 
         let orders = indexSQL.flatMap(orders)

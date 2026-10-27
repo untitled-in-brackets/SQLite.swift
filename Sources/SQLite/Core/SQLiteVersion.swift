@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public struct SQLiteVersion: Comparable, CustomStringConvertible, Sendable {
     public let major: Int

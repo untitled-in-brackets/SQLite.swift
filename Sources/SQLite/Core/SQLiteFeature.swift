@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 enum SQLiteFeature {
     case partialIntegrityCheck      // PRAGMA integrity_check(table)

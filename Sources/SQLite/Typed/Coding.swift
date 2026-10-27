@@ -22,7 +22,11 @@
 // THE SOFTWARE.
 //
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 extension QueryType {
     /// Creates an `INSERT` statement by encoding the given object
@@ -258,8 +262,10 @@ private class SQLiteEncoder: Encoder {
             switch value {
             case let data as Data:
                 encoder.setters.append(Expression(key.stringValue) <- data)
+            #if Foundation
             case let date as Date:
                 encoder.setters.append(Expression(key.stringValue) <- date.datatypeValue)
+            #endif
             case let uuid as UUID:
                 encoder.setters.append(Expression(key.stringValue) <- uuid.datatypeValue)
             default:
@@ -451,9 +457,11 @@ private class SQLiteDecoder: Decoder {
             case is Data.Type:
                 let data = try row.get(Expression<Data>(key.stringValue))
                 return data as! T
+            #if Foundation
             case is Date.Type:
                 let date = try row.get(Expression<Date>(key.stringValue))
                 return date as! T
+            #endif
             case is UUID.Type:
                 let uuid = try row.get(Expression<UUID>(key.stringValue))
                 return uuid as! T
@@ -499,8 +507,10 @@ private class SQLiteDecoder: Decoder {
             switch type {
             case is Data.Type:
                 return try? row.get(Expression<Data>(key.stringValue)) as? T
+            #if Foundation
             case is Date.Type:
                 return try? row.get(Expression<Date>(key.stringValue)) as? T
+            #endif
             case is UUID.Type:
                 return try? row.get(Expression<UUID>(key.stringValue)) as? T
             default:

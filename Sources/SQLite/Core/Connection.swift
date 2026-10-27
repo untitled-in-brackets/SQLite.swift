@@ -22,8 +22,14 @@
 // THE SOFTWARE.
 //
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Dispatch)
 import Dispatch
+#endif
 #if StandaloneSQLite
 import sqlite3
 #elseif SQLCipher
@@ -119,7 +125,9 @@ public final class Connection {
                                   &_handle,
                                   flags | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_URI,
                                   nil))
+        #if canImport(Dispatch)
         queue.setSpecific(key: Connection.queueKey, value: queueContext)
+        #endif
 
         // Use the live `readonly` flag rather than the init parameter so that
         // URI-based read-only connections (e.g. `mode=ro`, `immutable=1`) and
@@ -709,11 +717,15 @@ public final class Connection {
     // MARK: - Error Handling
 
     func sync<T>(_ block: () throws -> T) rethrows -> T {
+        #if canImport(Dispatch)
         if DispatchQueue.getSpecific(key: Connection.queueKey) == queueContext {
             return try block()
         } else {
             return try queue.sync(execute: block)
         }
+        #else
+        return try block()
+        #endif
     }
 
     @discardableResult func check(_ resultCode: Int32) throws -> Int32 {
@@ -724,11 +736,13 @@ public final class Connection {
         throw error
     }
 
+    #if canImport(Dispatch)
     fileprivate var queue = DispatchQueue(label: "SQLite.Database", attributes: [])
 
     fileprivate static let queueKey = DispatchSpecificKey<Int>()
 
     fileprivate lazy var queueContext: Int = unsafeBitCast(self, to: Int.self)
+    #endif
 
 }
 
@@ -796,7 +810,7 @@ extension Context {
         case let int as Int64:
             sqlite3_result_int64(self, int)
         case let string as String:
-            sqlite3_result_text(self, string, Int32(string.lengthOfBytes(using: .utf8)), SQLITE_TRANSIENT)
+            sqlite3_result_text(self, string, Int32(string.utf8.count), SQLITE_TRANSIENT)
         case .none:
             sqlite3_result_null(self)
         default:
