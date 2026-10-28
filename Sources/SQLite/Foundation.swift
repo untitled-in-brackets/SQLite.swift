@@ -23,12 +23,12 @@
 //
 
 #if canImport(FoundationEssentials)
-import FoundationEssentials
-#if Foundation
-import Foundation
-#endif
+public import struct FoundationEssentials.Data
+public import struct FoundationEssentials.Date
+public import struct FoundationEssentials.URL
+public import struct FoundationEssentials.UUID
 #else
-import Foundation
+public import Foundation
 #endif
 
 extension Data: Value {
@@ -57,15 +57,31 @@ extension Date: Value {
     }
 
     public static func fromDatatypeValue(_ stringValue: String) -> Date {
-        dateFormatter.date(from: stringValue)!
+        parseSQLiteDate(stringValue)!
     }
 
     public var datatypeValue: String {
-        dateFormatter.string(from: self)
+        formatSQLiteDate(self)
     }
 
 }
 
+#if canImport(FoundationEssentials)
+private let dateFormatStyle = Date.ISO8601FormatStyle()
+    .year()
+    .month()
+    .day()
+    .dateSeparator(.dash)
+    .time(includingFractionalSeconds: true)
+
+func parseSQLiteDate(_ stringValue: String) -> Date? {
+    try? dateFormatStyle.parse(stringValue)
+}
+
+func formatSQLiteDate(_ date: Date) -> String {
+    date.formatted(dateFormatStyle)
+}
+#else
 /// A global date formatter used to serialize and deserialize `NSDate` objects.
 /// If multiple date formats are used in an application’s database(s), use a
 /// custom `Value` type per additional format.
@@ -76,6 +92,15 @@ public let dateFormatter: DateFormatter = {
     formatter.timeZone = TimeZone(secondsFromGMT: 0)
     return formatter
 }()
+
+func parseSQLiteDate(_ stringValue: String) -> Date? {
+    dateFormatter.date(from: stringValue)
+}
+
+func formatSQLiteDate(_ date: Date) -> String {
+    dateFormatter.string(from: date)
+}
+#endif
 #endif
 
 extension UUID: Value {

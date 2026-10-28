@@ -30,6 +30,13 @@ class DateAndTimeFunctionsTests: XCTestCase {
 }
 
 class DateExtensionTests: XCTestCase {
+    func test_dateValueFormat() {
+        let date = Date(timeIntervalSince1970: 0)
+
+        XCTAssertEqual(date.datatypeValue, "1970-01-01T00:00:00.000")
+        XCTAssertEqual(Date.fromDatatypeValue("1970-01-01T00:00:00.000"), date)
+    }
+
     func test_time() {
         assertSQL("time('1970-01-01T00:00:00.000')", Date(timeIntervalSince1970: 0).time)
     }

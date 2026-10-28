@@ -23,12 +23,9 @@
 //
 
 #if canImport(FoundationEssentials)
-import FoundationEssentials
-#if Foundation
-import Foundation
-#endif
+public import struct FoundationEssentials.Date
 #else
-import Foundation
+public import Foundation
 #endif
 
 #if Foundation
@@ -79,19 +76,19 @@ public final class DateFunctions: Sendable {
 
 extension Date {
     public var date: Expression<Date?> {
-        DateFunctions.date(dateFormatter.string(from: self))
+        DateFunctions.date(formatSQLiteDate(self))
     }
 
     public var time: Expression<Date?> {
-        DateFunctions.time(dateFormatter.string(from: self))
+        DateFunctions.time(formatSQLiteDate(self))
     }
 
     public var datetime: Expression<Date?> {
-        DateFunctions.datetime(dateFormatter.string(from: self))
+        DateFunctions.datetime(formatSQLiteDate(self))
     }
 
     public var julianday: Expression<Date?> {
-        DateFunctions.julianday(dateFormatter.string(from: self))
+        DateFunctions.julianday(formatSQLiteDate(self))
     }
 }
 
